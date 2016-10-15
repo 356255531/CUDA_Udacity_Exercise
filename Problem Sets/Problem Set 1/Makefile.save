@@ -22,7 +22,7 @@ OPENCV_INCLUDEPATH=/usr/include
 
 OPENCV_LIBS=-lopencv_core -lopencv_imgproc -lopencv_highgui
 
-CUDA_INCLUDEPATH=/usr/local/cuda/include
+CUDA_INCLUDEPATH=/usr/local/cuda-5.0/include
 
 ######################################################
 # On Macs the default install locations are below    #
@@ -40,15 +40,3 @@ student: main.o student_func.o compare.o reference_calc.o Makefile
 
 main.o: main.cpp timer.h utils.h reference_calc.cpp compare.cpp HW1.cpp
 	g++ -c main.cpp $(GCC_OPTS) -I $(CUDA_INCLUDEPATH) -I $(OPENCV_INCLUDEPATH)
-
-student_func.o: student_func.cu utils.h
-	nvcc -c student_func.cu $(NVCC_OPTS)
-
-compare.o: compare.cpp compare.h
-	g++ -c compare.cpp -I $(OPENCV_INCLUDEPATH) $(GCC_OPTS) -I $(CUDA_INCLUDEPATH)
-
-reference_calc.o: reference_calc.cpp reference_calc.h
-	g++ -c reference_calc.cpp -I $(OPENCV_INCLUDEPATH) $(GCC_OPTS) -I $(CUDA_INCLUDEPATH)
-
-clean:
-	rm -f *.o *.png hw
