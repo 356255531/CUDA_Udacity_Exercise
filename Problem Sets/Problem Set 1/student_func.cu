@@ -18,7 +18,7 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
     // unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
     // greyImage[i + j * numCols] = grey;
 
-    const index = THREAD_PER_SM * blockIdx.x + threadIdx.x
+    const index = THREAD_PER_SM * blockIdx.x + threadIdx.x;
     uchar4 rgba = rgbaImage[index];
     unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
     greyImage[index] = grey;
