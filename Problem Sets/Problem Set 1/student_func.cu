@@ -11,14 +11,11 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
 {
     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
     size_t j = blockDim.y * blockIdx.y + threadIdx.y;
-    if ( i >= numRows || j >= numCols)
-    {
-        return;
-    }
+    if ( i >= numRows || j >= numCols) return;
 
     uchar4 rgba = rgbaImage[i + j * numCols];
-
-    greyImage[i + j * numCols] = rgba.x * .299f + rgba.y * .587f + rgba.z * .114f;
+    unsigned char grey = rgba.x * .299f + rgba.y * .587f + rgba.z * .114f;
+    greyImage[i + j * numCols] = grey;
 }
 
 void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_rgbaImage,
