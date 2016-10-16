@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <math.h>
 #define LONG_RECTANGE 16
 #define WIDE_RECTANGE 12
 #define THREAD_PER_SM 192
@@ -32,12 +33,19 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
     // // *d_greyImage = *d_rgbaImage;
     // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
-    int   blockWidth = 12;
+    // int   blockWidth = 12;
 
-    const dim3 blockSize(blockWidth, blockWidth, 1);
-    int   blocksX = numRows/blockWidth+1;
-    int   blocksY = numCols/blockWidth+1; //TODO
-    const dim3 gridSize( blocksX, blocksY, 1);  //TODO
+    // const dim3 blockSize(blockWidth, blockWidth, 1);
+    // int   blocksX = numRows/blockWidth+1;
+    // int   blocksY = numCols/blockWidth+1; //TODO
+    // const dim3 gridSize( blocksX, blocksY, 1);  //TODO
+    // rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
+
+    // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+    const int thread = 16;
+    const dim3 blockSize( thread, thread, 1);
+    const dim3 gridSize( ceil(numRows/(float)thread), ceil(numCols/(float)thread), 1);
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
