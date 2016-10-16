@@ -10,13 +10,20 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
                         unsigned char* const greyImage, 
                         int numRows, int numCols)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t j = blockDim.y * blockIdx.y + threadIdx.y;
-    if ( i >= numRows || j >= numCols) return;
+    const long pointIndex = threadIdx.x + blockDim.x*blockIdx.x;
+ 
+    if(pointIndex<numRows*numCols) { // this is necessary only if too many threads are started
+        uchar4 const imagePoint = rgbaImage[pointIndex];
+        greyImage[pointIndex] = .299f*imagePoint.x + .587f*imagePoint.y  + .114f*imagePoint.z;
+    }
+    
+    // size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    // size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+    // if ( i >= numRows || j >= numCols) return;
 
-    uchar4 rgba = rgbaImage[i + j * numCols];
-    unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
-    greyImage[i + j * numCols] = grey;
+    // uchar4 rgba = rgbaImage[i + j * numCols];
+    // unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
+    // greyImage[i + j * numCols] = grey;
 }
 
 void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_rgbaImage,
