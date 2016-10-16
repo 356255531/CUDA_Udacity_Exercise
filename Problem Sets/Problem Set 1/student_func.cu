@@ -14,7 +14,7 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
     if ( i >= numRows || j >= numCols) return;
 
     uchar4 rgba = rgbaImage[i + j * numCols];
-    unsigned char grey = rgba.x * .299f + rgba.y * .587f + rgba.z * .114f;
+    unsigned char grey = dynamic_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
     greyImage[i + j * numCols] = grey;
 }
 
