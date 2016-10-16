@@ -49,4 +49,5 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
 }
