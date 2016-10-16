@@ -32,7 +32,7 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
     const dim3 blockSize(block_num_x, block_num_y, 1);  //TODO
     const dim3 gridSize( 1, 1, 1);  //TODO
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
-
+    *d_greyImage = *d_rgbaImage;
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
 }
