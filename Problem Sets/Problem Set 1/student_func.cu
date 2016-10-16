@@ -41,7 +41,7 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
     const dim3 blockSize(BLOCK_SIZE_WIDTH, BLOCK_SIZE_LENGTH, 1);
     int   grid_size_width = (numRows + BLOCK_SIZE_WIDTH -1) / BLOCK_SIZE_WIDTH;
     int   grid_size_length = (numCols + BLOCK_SIZE_LENGTH - 1) / BLOCK_SIZE_LENGTH; //TODO
-    const dim3 gridSize( blocksX, blocksY, 1);  //TODO
+    const dim3 gridSize( grid_size_width, grid_size_length, 1);  //TODO
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
