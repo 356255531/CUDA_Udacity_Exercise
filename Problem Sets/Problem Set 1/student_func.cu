@@ -23,13 +23,22 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
 {
 //You must fill in the correct sizes for the blockSize and gridSize
 //currently only one block with one thread is being launched
-    size_t block_num_x = numRows / WIDE_RECTANGE + (numRows % WIDE_RECTANGE) == 0 ? 0 : 1;
-    size_t block_num_y = numCols / LONG_RECTANGE + (numCols % LONG_RECTANGE) == 0 ? 0 : 1;
+    // size_t block_num_x = numRows / WIDE_RECTANGE + (numRows % WIDE_RECTANGE) == 0 ? 0 : 1;
+    // size_t block_num_y = numCols / LONG_RECTANGE + (numCols % LONG_RECTANGE) == 0 ? 0 : 1;
 
-    const dim3 blockSize(block_num_x, block_num_y, 1);  //TODO
-    const dim3 gridSize( 1, 1, 1);  //TODO
+    // const dim3 blockSize(block_num_x, block_num_y, 1);  //TODO
+    // const dim3 gridSize( 1, 1, 1);  //TODO
+    // rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
+    // // *d_greyImage = *d_rgbaImage;
+    // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+    int   blockWidth = 32;
+
+    const dim3 blockSize(blockWidth, blockWidth, 1);
+    int   blocksX = numRows/blockWidth+1;
+    int   blocksY = numCols/blockWidth+1; //TODO
+    const dim3 gridSize( blocksX, blocksY, 1);  //TODO
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
-    // *d_greyImage = *d_rgbaImage;
-    cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
+    cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 }
