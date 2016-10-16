@@ -10,7 +10,7 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
                         int numRows, int numCols)
 {
     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t j = blockDim.y * threadIdx.y + threadIdx.y;
+    size_t j = blockDim.y * blockIdx.y + threadIdx.y;
     if ( i >= numRows || j >= numCols)
     {
         return;
