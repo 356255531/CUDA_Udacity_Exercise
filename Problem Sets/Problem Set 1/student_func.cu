@@ -10,13 +10,6 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
                         unsigned char* const greyImage, 
                         int numRows, int numCols)
 {
-    const long pointIndex = threadIdx.x + blockDim.x*blockIdx.x;
- 
-    if(pointIndex<numRows*numCols) { // this is necessary only if too many threads are started
-        uchar4 const imagePoint = rgbaImage[pointIndex];
-        greyImage[pointIndex] = .299f*imagePoint.x + .587f*imagePoint.y  + .114f*imagePoint.z;
-    }
-    
     // size_t i = blockDim.x * blockIdx.x + threadIdx.x;
     // size_t j = blockDim.y * blockIdx.y + threadIdx.y;
     // if ( i >= numRows || j >= numCols) return;
@@ -24,6 +17,10 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
     // uchar4 rgba = rgbaImage[i + j * numCols];
     // unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
     // greyImage[i + j * numCols] = grey;
+
+    uchar4 rgba = rgbaImage[THREAD_PER_SM * blockIdx.x + threadIdx.x];
+    unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
+    greyImage[i + j * numCols] = grey;
 }
 
 void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_rgbaImage,
@@ -57,11 +54,7 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
 
     // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
-    const int blockThreadSize = 192;
-    const int numberOfBlocks = 1 + ((numRows*numCols - 1) / blockThreadSize); // a/b rounded up
-    const dim3 blockSize(blockThreadSize, 1, 1);
-    const dim3 gridSize(numberOfBlocks , 1, 1);
-    rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
+    rgba_to_greyscale<<<(numRows * numCols + THREAD_PER_SM - 1) / THREAD_PER_SM, THREAD_PER_SM>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 }
