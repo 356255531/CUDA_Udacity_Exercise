@@ -32,11 +32,11 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
     // // *d_greyImage = *d_rgbaImage;
     // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
-    int   blockWidth = 32;
+    int   blockWidth = 12;
 
-    const dim3 blockSize(16, 12, 1);
-    int   blocksX = numRows/16+1;
-    int   blocksY = numCols/12+1; //TODO
+    const dim3 blockSize(blockWidth, blockWidth, 1);
+    int   blocksX = numRows/blockWidth+1;
+    int   blocksY = numCols/blockWidth+1; //TODO
     const dim3 gridSize( blocksX, blocksY, 1);  //TODO
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
