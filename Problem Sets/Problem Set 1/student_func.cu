@@ -43,11 +43,18 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
 
     // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
-    const int thread = 16;
-    const dim3 blockSize( thread, thread, 1);
-    const dim3 gridSize( ceil(numRows/(float)thread), ceil(numCols/(float)thread), 1);
+    // const int thread = 16;
+    // const dim3 blockSize( thread, thread, 1);
+    // const dim3 gridSize( ceil(numRows/(float)thread), ceil(numCols/(float)thread), 1);
+    // rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
+
+    // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+    const int blockThreadSize = 192;
+    const int numberOfBlocks = 1 + ((numRows*numCols - 1) / blockThreadSize); // a/b rounded up
+    const dim3 blockSize(blockThreadSize, 1, 1);
+    const dim3 gridSize(numberOfBlocks , 1, 1);
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
-
 }
