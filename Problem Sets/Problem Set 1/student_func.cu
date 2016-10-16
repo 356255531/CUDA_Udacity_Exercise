@@ -18,9 +18,10 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
     // unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
     // greyImage[i + j * numCols] = grey;
 
-    uchar4 rgba = rgbaImage[THREAD_PER_SM * blockIdx.x + threadIdx.x];
+    const index = THREAD_PER_SM * blockIdx.x + threadIdx.x
+    uchar4 rgba = rgbaImage[index];
     unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
-    greyImage[i + j * numCols] = grey;
+    greyImage[index] = grey;
 }
 
 void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_rgbaImage,
