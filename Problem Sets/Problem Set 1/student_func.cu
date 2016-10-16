@@ -14,9 +14,10 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
     size_t j = blockDim.y * blockIdx.y + threadIdx.y;
     if ( i >= numRows || j >= numCols) return;
 
-    uchar4 rgba = rgbaImage[i + j * numCols];
+    const int index = i * numCols + j;
+    uchar4 rgba = rgbaImage[index];
     unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
-    greyImage[i + j * numCols] = grey;
+    greyImage[index] = grey;
 
     // const int index = THREAD_PER_SM * blockIdx.x + threadIdx.x;
     // uchar4 rgba = rgbaImage[index];
