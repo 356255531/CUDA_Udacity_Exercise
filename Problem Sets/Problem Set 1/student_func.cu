@@ -10,11 +10,11 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
                         unsigned char* const greyImage, 
                         int numRows, int numCols)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t j = blockDim.y * blockIdx.y + threadIdx.y;
-    if ( i >= numRows || j >= numCols) return;
+    size_t absolute_position_x = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t absolute_position_y = blockDim.y * blockIdx.y + threadIdx.y;
+    if ( absolute_position_x >= numCols || absolute_position_y >= numRows) return;
 
-    const int index = i * numCols + j;
+    const int index = absolute_position_y * numCols + absolute_position_x;
     uchar4 rgba = rgbaImage[index];
     unsigned char grey = static_cast<unsigned char>(rgba.x * .299f + rgba.y * .587f + rgba.z * .114f);
     greyImage[index] = grey;
@@ -39,10 +39,10 @@ unsigned char* const d_greyImage, size_t numRows, size_t numCols)
     // // *d_greyImage = *d_rgbaImage;
     // cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
 
-    const dim3 blockSize(BLOCK_SIZE_WIDTH, BLOCK_SIZE_LENGTH, 1);
-    int   grid_size_width = (numRows + BLOCK_SIZE_WIDTH -1) / BLOCK_SIZE_WIDTH;
-    int   grid_size_length = (numCols + BLOCK_SIZE_LENGTH - 1) / BLOCK_SIZE_LENGTH; //TODO
-    const dim3 gridSize( grid_size_width, grid_size_length, 1);  //TODO
+    const dim3 blockSize( BLOCK_SIZE_LENGTH, BLOCK_SIZE_WIDTH );
+    int   grid_size_x = ( numCols + blockSize.x - 1 ) / blockSize.x;
+    int   grid_size_y = ( numRows + blockSize.y - 1 ) / blockSize.y; //TODO
+    const dim3 gridSize( grid_size_x, grid_size_y );  //TODO
     rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
 
     cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
