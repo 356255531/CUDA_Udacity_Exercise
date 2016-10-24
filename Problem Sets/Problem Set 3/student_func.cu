@@ -80,6 +80,51 @@
 */
 
 #include "utils.h"
+#define BLOCK_LENGTH 16
+#define BLOCK_WIDTH 12
+#define NUM_SM 2
+#define NUM_THREAD 192
+
+
+void find_extrem_value(const float* const d_logLuminance, 
+                       float &min_logLum, 
+                       float &max_logLum, 
+                       const size_t numRows, 
+                       const size_t numCols);
+
+__global__
+void _k_schared_reduce_min_max(const float* const d_input, 
+                               float* const d_output, 
+                               const size_t input_size, 
+                               const bool min_or_max);
+
+
+unsigned int* compute_histogram(const float* const d_logLuminance, 
+                          const float &min_logLum, 
+                          const float &lum_range, 
+                          const size_t numBins, 
+                          const size_t numRows, 
+                          const size_t numCols);
+
+__global__
+unsigned int* _k_schared_generate_histogram(const float* const d_logLuminance, 
+                                            const float &min_logLum, 
+                                            const float &lum_range, 
+                                            unsigned int* const d_histogram, 
+                                            const size_t input_size);
+
+__global__
+void _k_schared_reduce_histogram(const float* const d_histogram_input, 
+                                 unsigned int* const d_histogram, 
+                                 const size_t input_size, 
+                                 const size_t numBins);
+
+__global__
+void _k_perform_scan(const unsigned int* const d_histogram, 
+                     unsigned int* const d_cdf, 
+                     size_t const numBins);
+
+
 
 void your_histogram_and_prefixsum(const float* const d_logLuminance,
                                   unsigned int* const d_cdf,
@@ -100,5 +145,271 @@ void your_histogram_and_prefixsum(const float* const d_logLuminance,
        the cumulative distribution of luminance values (this should go in the
        incoming d_cdf pointer which already has been allocated for you)       */
 
+// 1) find the minimum and maximum value in the input logLuminance channel
+//    store in min_logLum and max_logLum
 
+  find_extrem_value(d_logLuminance, min_logLum, max_logLum,numRows, numCols);
+
+  // 2) subtract them to find the range
+  float lum_range = (max_logLum - min_logLum) / (numBins * 1.0);
+  // 3) generate a histogram of all the values in the logLuminance channel using
+  // the formula: bin = (lum[i] - lumMin) / lumRange * numBins
+
+  unsigned int* d_histogram = compute_histogram(d_luminance, min_logLum, lum_range, 
+                                          numBins, numRows, numCols);
+
+  // 4) Perform an exclusive scan (prefix sum) on the histogram to get
+  // the cumulative distribution of luminance values (this should go in the
+  // incoming d_cdf pointer which already has been allocated for you) 
+
+  dim3 grid_size((numBins + NUM_THREAD - 1) / NUM_THREAD),
+       block_size(NUM_THREAD);
+
+  _k_perform_scan<<<grid_size, block_size>>>(d_histogram, d_cdf, numBins);
+
+  checkCudaErrors(cudaFree(d_histogram));
+  d_histogram = NULL;
+}
+
+void find_extrem_value(const float* const d_logLuminance, 
+                       float &min_logLum, 
+                       float &max_logLum, 
+                       const size_t numRows, 
+                       const size_t numCols)
+{
+  size_t input_size = numRows * numCols;
+  size_t grid_size = (input_size + NUM_THREAD - 1) / NUM_THREAD, 
+         block_size = NUM_THREAD;
+  float *d_max_input, *d_min_input, *d_max_output, *d_min_output;
+
+  checkCudaErrors(cudaMemMalloc(&d_min_input, input_size));
+  checkCudaErrors(cudaMemMalloc(&d_max_output, input_size));
+
+  checkCudaErrors(cudaMemcpy(d_min_input, d_logLuminance, 
+                            input_size * sizeof(float), 
+                            cudaMemcpyDeviceToDevice));
+
+  checkCudaErrors(cudaMemcpy(d_max_output, d_logLuminance, 
+                            input_size * sizeof(float), 
+                            cudaMemcpyDeviceToDevice));
+
+  while(gridSize > 1) {
+    checkCudaErrors(cudaMemMalloc(&d_max_output, sizeof(float) * grid_size));
+    checkCudaErrors(cudaMemMalloc(&d_min_output, sizeof(float) * grid_size));
+
+    _k_schared_reduce_min_max<<<grid_size, block_size>>>(d_min_input, 
+                                                         d_min_output, 
+                                                         input_size, 
+                                                         0);
+    cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+    _k_schared_reduce_min_max<<<grid_size, block_size>>>(d_max_input, 
+                                                         d_max_output, 
+                                                         input_size, 
+                                                         1);
+
+    cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+    input_size = grid_size;
+    grid_size = (grid_size + NUM_THREAD - 1) / NUM_THREAD;
+
+    checkCudaErrors(cudaFree(d_min_input));
+    checkCudaErrors(cudaFree(d_max_input));
+    d_min_input = d_min_output;
+    d_max_input = d_max_output;
+  }
+
+  min_logLum = d_min_input[0];
+  max_logLum = d_max_input[0];
+
+  checkCudaErrors(cudaFree(d_max_input));
+  checkCudaErrors(cudaFree(d_min_input));
+}
+
+__global__
+void _k_schared_reduce_min_max(const float* const d_input, 
+                               float* const d_output, 
+                               const size_t input_size, 
+                               const bool min_or_max)
+{
+  const size_t my_absolute_position = blockDim.x * blockIdx.x + threadIdx.x;
+  const int thread_id = threadIdx.x;
+
+  extern __shared__ float shared_input_copy[];
+  if (my_absolute_position < input_size) 
+    shared_input_copy[thread_id] = d_max_input[my_absolute_position];
+  else {
+      if (min_or_max) {
+        shared_input_copy[thread_id] = FLT_INF;
+      }
+      else {
+        shared_input_copy[thread_id] = -FLT_INF;
+      }
+      return;
+  }
+
+  __syncthreads();
+
+  for (unsigned int i = threadDim.x / 2; i > 0; i>>=1)
+  {
+    if (thread_id < i)
+    {
+      if (min_or_max) {
+        shared_input_copy[thread_id] = std::min(shared_input_copy[thread_id], 
+                                                shared_input_copy[thread_id + i]);
+      }
+      else {
+        shared_input_copy[thread_id] = std::max(shared_input_copy[thread_id], 
+                                                  shared_input_copy[thread_id + i]);
+      }
+    }
+  }
+
+  __syncthreads();
+
+
+  if (thread_id == 0)
+  {
+    d_output[blockIdx.x] = shared_input_copy[0];
+  }
+
+}
+
+unsigned int* compute_histogram(const float* const d_logLuminance, 
+                          const float &min_logLum, 
+                          const float &lum_range, 
+                          const size_t numBins, 
+                          const size_t numRows, 
+                          const size_t numCols)
+{
+  size_t input_size = numRows * numCols;
+  size_t grid_size = (input_size + NUM_THREAD - 1) / 
+                      NUM_THREAD, 
+         block_size = NUM_THREAD;
+  
+  unsigned int *d_histogram;
+  checkCudaErrors(cudaMemMalloc(&d_histogram, numBins * sizeof(float) * grid_size));
+  _k_schared_generate_histogram<<<grid_size, block_size>>>(d_logLuminance, min_logLum, 
+                                                           lum_range, d_histogram, 
+                                                           input_size);
+
+  unsigned int *d_histogram_input = d_histogram;
+  while(gridSize > 1)
+  {
+      checkCudaErrors(cudaMemMalloc(&d_histogram, numBins * sizeof(float) * grid_size));
+
+      _k_schared_reduce_histogram<<<grid_size, block_size>>>(d_histogram_input, d_histogram, 
+                                                             input_size, numBins);
+      cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+      checkCudaErrors(cudaFree(d_histogram_input));
+      d_histogram_input = d_histogram;
+      input_size = grid_size;
+      grid_size = (grid_size + NUM_THREAD - 1) / NUM_THREAD;
+  }
+
+  return d_histogram_input;
+}
+
+__global__
+unsigned int* _k_schared_generate_histogram(const float* const d_logLuminance, 
+                                            const float &min_logLum, 
+                                            const float &lum_range, 
+                                            unsigned int* const d_histogram, 
+                                            const size_t input_size)
+{
+  size_t my_absolute_position = blockDim.y * blockIdx.x + threadIdx.x;
+  size_t int thread_id = threadIdx.x;
+
+  extern __shared__ unsigned int *shared_bins[];
+  if (my_absolute_position < input_size) {
+      unsigned char bin_positon = (d_luminance[my_absolute_position] - 
+                                   min_logLum) / lum_range * numBins;
+      shared_bins[thread_id * numBins + bin_positon]++;
+  }
+  else {
+    return;
+  }
+
+  __syncthreads;
+
+  for (int i = threadDim.x / 2; i > 0; i>>=1)
+  {
+    if (thread_id < i)
+    {
+      for (int j = 0; j < numBins; ++j)
+      {
+        shared_bins[thread_id * numBins + j] += shared_bins[(thread_id + i) * 
+                                                numBins + j];
+      }
+    }
+  }
+
+  __syncthreads();
+
+  if (thread_id = 0)
+  {
+    for (int j = 0; j < numBins; ++j)
+    {
+      d_histogram[blockIdx.x * numBins + j] += shared_bins[j];
+    }
+  }
+
+}
+
+__global__
+void _k_schared_reduce_histogram(const float* const d_histogram_input, 
+                                 float* const d_histogram, 
+                                 const size_t input_size, 
+                                 const size_t numBins)
+{
+  size_t my_absolute_position = blockDim.y * blockIdx.x + threadIdx.x;
+  int thread_id = threadIdx.x;
+
+  extern __shared__ unsigned int d_shared_histogram[];
+  if (my_absolute_position < input_size) {
+
+    for (int i = 0; i < numBins; ++i) {
+      d_shared_histogram[thread_id * numBins + i] = d_histogram_input[my_absolute_position * numBins + i];
+    }
+  }
+  else {
+    return;
+  }
+
+  __syncthreads();
+
+for (int i = blockDim.x ; i > 0; i >>= 1)
+{
+  if (thread_id < i)
+  {
+    for (int j = 0; j < numBins; ++j) {
+      d_shared_histogram[thread_id * numBins + j] += d_shared_histogram[(thread_id + i) * numBins + j];
+    }
+  }
+
+  __syncthreads();
+}
+  
+  if (thread_id == 0)
+  {
+    for (int j = 0; j < numBins; ++j) {
+      d_histogram[blockIdx.x * numBins + j] += d_shared_histogram[j];
+    }
+  }
+
+}
+
+__global__
+void _k_perform_scan(const unsigned int* const d_histogram, 
+                     unsigned int* const d_cdf, 
+                     size_t const numBins) {
+  size_t my_absolute_position = blockDim.x + blockIdx.x + threadIdx.x;
+  unsigned int thread_id = threadIdx.x;
+
+  if (my_absolute_position >= numBins) {
+    return;
+  }
+
+  
 }
