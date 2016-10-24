@@ -46,7 +46,7 @@ compare.o: compare.cpp compare.h
 	g++ -c compare.cpp -I $(OPENCV_INCLUDEPATH) $(GCC_OPTS) -I $(CUDA_INCLUDEPATH)
 
 reference_calc.o: reference_calc.cpp reference_calc.h
-	g++ -c reference_calc.cpp -I $§(OPENCV_INCLUDEPATH) $(GCC_OPTS) -I $(CUDA_INCLUDEPATH)
+	g++ -c reference_calc.cpp -I $(OPENCV_INCLUDEPATH) $(GCC_OPTS) -I $(CUDA_INCLUDEPATH)
 
 student_func.o: student_func.cu utils.h
 	$(NVCC) -c student_func.cu $(NVCC_OPTS)
